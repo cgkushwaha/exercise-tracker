@@ -135,7 +135,8 @@ const getUserExerciseLog = async function (req, res) {
     // find exercises using filters
     const exercises = await Exercise
       .find(exerciseFilters)
-      .select("-_id -__v -userId");
+      .select("-_id -__v -userId")
+      .limit(limit ? parseInt(limit) : 0);
 
     // construct response object
     const response = {
