@@ -1,24 +1,25 @@
-const express = require('express')
-const app = express()
-const bodyParser = require('body-parser')
-const cors = require('cors')
-require('dotenv').config()
-const ObjectId = require('mongodb').ObjectID;
+const express = require("express");
+const app = express();
+const bodyParser = require("body-parser");
+const cors = require("cors");
+require("dotenv").config();
+const ObjectId = require("mongodb").ObjectID;
 
-const mongoose = require('mongoose')
-mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-
-app.use(cors())
-
-app.use(bodyParser.urlencoded({ extended: false }))
-app.use(bodyParser.json())
-
-
-app.use(express.static('public'))
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/views/index.html')
+const mongoose = require("mongoose");
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
 });
 
+app.use(cors());
+
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+
+app.use(express.static("public"));
+app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/views/index.html");
+});
 
 // Not found middleware
 // app.use((req, res, next) => {
@@ -27,22 +28,24 @@ app.get('/', (req, res) => {
 
 // Error Handling middleware
 app.use((err, req, res, next) => {
-  let errCode, errMessage
+  let errCode, errMessage;
 
   if (err.errors) {
     // mongoose validation error
-    errCode = 400 // bad request
-    const keys = Object.keys(err.errors)
+    errCode = 400; // bad request
+    const keys = Object.keys(err.errors);
     // report the first validation error
-    errMessage = err.errors[keys[0]].message
+    errMessage = err.errors[keys[0]].message;
   } else {
     // generic or custom error
-    errCode = err.status || 500
-    errMessage = err.message || 'Internal Server Error'
+    errCode = err.status || 500;
+    errMessage = err.message || "Internal Server Error";
   }
-  res.status(errCode).type('txt')
-    .send(errMessage)
-})
+  res
+    .status(errCode)
+    .type("txt")
+    .send(errMessage);
+});
 
 // Mongoose schema and models
 const UserSchema = new mongoose.Schema({
@@ -50,9 +53,9 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true
   }
-})
+});
 
-const User = mongoose.model('User', UserSchema);
+const User = mongoose.model("User", UserSchema);
 
 const ExerciseSchema = new mongoose.Schema({
   userId: mongoose.Schema.Types.ObjectId,
@@ -61,7 +64,7 @@ const ExerciseSchema = new mongoose.Schema({
   date: Date
 });
 
-const Exercise = mongoose.model('Exercise', ExerciseSchema);
+const Exercise = mongoose.model("Exercise", ExerciseSchema);
 
 // Handlers
 
@@ -88,7 +91,7 @@ const createNewUser = async function (req, res) {
     console.log(err);
     return res.json({ error: "Internal server error" });
   }
-}
+};
 
 // handler to find all users
 const getAllUsers = function (req, res) {
@@ -98,21 +101,35 @@ const getAllUsers = function (req, res) {
       console.log(err);
       return res.json({ error: err });
     });
-}
+};
 
 // handler to add new exercise
 const addNewExercise = async function (req, res) {
   const { userId, description, duration, date } = req.body;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    return res.json({ error: "Unknown userId" });
+  }
+
   // if date query parameter is null set today's date
   const dateVal = date ? date : new Date();
-  return Exercise
-    .create({ userId, description, duration, date: dateVal })
-    .then(newExercise => res.json(newExercise))
+  return Exercise.create({ userId, description, duration, date: dateVal })
+    .then(newExercise => {
+      const response = {
+        _id: newExercise.userId,
+        description: newExercise.description,
+        duration: newExercise.duration,
+        date: new Date(newExercise.date).toDateString(),
+        username: user.username
+      };
+      return res.json(response);
+    })
     .catch(err => {
       console.log(err);
       return res.json({ error: err });
-    })
-}
+    });
+};
 
 // handler to get user exercise log details
 const getUserExerciseLog = async function (req, res) {
@@ -121,7 +138,7 @@ const getUserExerciseLog = async function (req, res) {
 
     // userId is mandatory query parameter
     if (!userId) {
-      return res.json({ error: "Required parameter is missing" })
+      return res.json({ error: "Required parameter is missing" });
     }
 
     const exerciseFilters = {};
@@ -132,11 +149,9 @@ const getUserExerciseLog = async function (req, res) {
     }
 
     // find user by userId
-    const user = await User
-      .findById(userId);
+    const user = await User.findById(userId);
     // find exercises using filters
-    const exercises = await Exercise
-      .find(exerciseFilters)
+    const exercises = await Exercise.find(exerciseFilters)
       .select("-_id -__v -userId")
       .limit(limit ? parseInt(limit) : 0);
 
@@ -146,13 +161,13 @@ const getUserExerciseLog = async function (req, res) {
       username: user.username,
       count: exercises.length,
       log: exercises
-    }
+    };
     return res.json(response);
   } catch (err) {
     console.log(err);
     return res.status(500).json({ error: "Internal server error" });
   }
-}
+};
 
 // APIs
 
@@ -163,9 +178,8 @@ app.get("/api/exercise/users", getAllUsers);
 // add exercise API endpoint
 app.post("/api/exercise/add", addNewExercise);
 // get user exercise log API endpoint
-app.get("/api/exercise/log", getUserExerciseLog)
-
+app.get("/api/exercise/log", getUserExerciseLog);
 
 const listener = app.listen(process.env.PORT || 3000, () => {
-  console.log('Your app is listening on port ' + listener.address().port)
-})
+  console.log("Your app is listening on port " + listener.address().port);
+});
