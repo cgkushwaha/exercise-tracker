@@ -103,8 +103,10 @@ const getAllUsers = function (req, res) {
 // handler to add new exercise
 const addNewExercise = async function (req, res) {
   const { userId, description, duration, date } = req.body;
+  // if date query parameter is null set today's date
+  const dateVal = date ? date : new Date();
   return Exercise
-    .create({ userId, description, duration, date })
+    .create({ userId, description, duration, date: dateVal })
     .then(newExercise => res.json(newExercise))
     .catch(err => {
       console.log(err);
